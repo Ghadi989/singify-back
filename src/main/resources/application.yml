@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: singify-back
+  profiles:
+    active: dev

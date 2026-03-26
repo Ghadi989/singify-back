@@ -1,14 +1,15 @@
 package com.gray.singifyback;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
-// Full context test removed during dev — DB not available in CI without Docker
-// Real integration tests will be added once Docker Compose is set up
+@SpringBootTest(properties = "spring.profiles.active=test")
+@ActiveProfiles("test")
 class SingifyBackApplicationTests {
 
     @Test
     void contextLoads() {
-        // placeholder — Spring context tested via Docker in CI
+        // Verifies the full Spring context starts successfully with H2 + test profile
     }
-
 }

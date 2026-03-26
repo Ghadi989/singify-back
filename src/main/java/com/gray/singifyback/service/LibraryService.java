@@ -41,7 +41,11 @@ public class LibraryService {
         Song song = getSong(songId);
         user.getLikedSongs().add(song);
         userRepository.save(user);
-        kafkaTemplate.send(KafkaConfig.TOPIC_SONG_LIKED, userEmail + ":" + songId);
+        try {
+            kafkaTemplate.send(KafkaConfig.TOPIC_SONG_LIKED, userEmail + ":" + songId);
+        } catch (Exception e) {
+            // Kafka not available locally — like still saved in DB
+        }
     }
 
     @Transactional

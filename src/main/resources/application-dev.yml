@@ -22,6 +22,9 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    admin:
+      auto-create: false
+      fail-fast: false
 
 server:
   port: 8080
@@ -41,3 +44,5 @@ logging:
   level:
     com.gray.singifyback: DEBUG
     org.springframework.security: DEBUG
+    org.apache.kafka: ERROR
+    org.springframework.kafka: ERROR

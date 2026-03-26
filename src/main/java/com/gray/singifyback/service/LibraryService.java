@@ -6,7 +6,6 @@ import com.gray.singifyback.model.Song;
 import com.gray.singifyback.model.User;
 import com.gray.singifyback.repository.SongRepository;
 import com.gray.singifyback.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,25 +13,25 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class LibraryService {
 
     private final UserRepository userRepository;
     private final SongRepository songRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
 
+    public LibraryService(UserRepository userRepository, SongRepository songRepository,
+                          KafkaTemplate<String, String> kafkaTemplate) {
+        this.userRepository = userRepository;
+        this.songRepository = songRepository;
+        this.kafkaTemplate = kafkaTemplate;
+    }
+
     public List<SongResponse> getLikedSongs(String userEmail) {
         User user = getUser(userEmail);
         return user.getLikedSongs().stream()
-                .map(song -> SongResponse.builder()
-                        .id(song.getId())
-                        .title(song.getTitle())
-                        .artist(song.getArtist())
-                        .coverUrl(song.getCoverUrl())
-                        .audioUrl(song.getAudioUrl())
-                        .duration(song.getDuration())
-                        .userLike(true)
-                        .build())
+                .map(song -> new SongResponse(
+                        song.getId(), song.getTitle(), song.getArtist(),
+                        song.getCoverUrl(), song.getAudioUrl(), song.getDuration(), true))
                 .toList();
     }
 

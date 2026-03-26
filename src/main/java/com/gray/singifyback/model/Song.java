@@ -1,11 +1,9 @@
 package com.gray.singifyback.model;
 
 import jakarta.persistence.*;
-import lombok.*;
 
 @Entity
 @Table(name = "songs")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Song {
 
     @Id
@@ -23,6 +21,34 @@ public class Song {
     @Column(nullable = false)
     private String audioUrl;
 
-    // e.g. "3:02"
     private String duration;
+
+    public Song() {}
+
+    public Song(String id, String title, String artist, String coverUrl, String audioUrl, String duration) {
+        this.id = id;
+        this.title = title;
+        this.artist = artist;
+        this.coverUrl = coverUrl;
+        this.audioUrl = audioUrl;
+        this.duration = duration;
+    }
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
+    public String getArtist() { return artist; }
+    public void setArtist(String artist) { this.artist = artist; }
+
+    public String getCoverUrl() { return coverUrl; }
+    public void setCoverUrl(String coverUrl) { this.coverUrl = coverUrl; }
+
+    public String getAudioUrl() { return audioUrl; }
+    public void setAudioUrl(String audioUrl) { this.audioUrl = audioUrl; }
+
+    public String getDuration() { return duration; }
+    public void setDuration(String duration) { this.duration = duration; }
 }

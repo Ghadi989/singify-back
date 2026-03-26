@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/songs")
@@ -55,7 +56,7 @@ public class SongController {
     }
 
     @GetMapping("/{id}/lyrics")
-    public ResponseEntity<Object> getLyrics(@PathVariable String id,
+    public ResponseEntity<Map<String, Object>> getLyrics(@PathVariable String id,
             @AuthenticationPrincipal UserDetails userDetails) {
         String email = userDetails != null ? userDetails.getUsername() : null;
         SongResponse song = songService.getSongById(id, email);

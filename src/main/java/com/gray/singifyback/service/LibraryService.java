@@ -42,9 +42,10 @@ public class LibraryService {
         user.getLikedSongs().add(song);
         userRepository.save(user);
         try {
-            kafkaTemplate.send(KafkaConfig.TOPIC_SONG_LIKED, userEmail + ":" + songId);
-        } catch (Exception e) {
-            // Kafka not available locally — like still saved in DB
+            kafkaTemplate.send(KafkaConfig.TOPIC_SONG_LIKED, userEmail + ":" + songId)
+                    .whenComplete((result, ex) -> { /* silently ignore async failures */ });
+        } catch (Exception ignored) {
+            // Kafka not running locally — like is already saved above
         }
     }
 

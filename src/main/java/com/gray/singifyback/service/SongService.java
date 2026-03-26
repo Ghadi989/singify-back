@@ -8,6 +8,7 @@ import com.gray.singifyback.repository.SongRepository;
 import com.gray.singifyback.repository.UserRepository;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ public class SongService {
         this.kafkaTemplate = kafkaTemplate;
     }
 
+    @Transactional(readOnly = true)
     public List<SongResponse> getAllSongs(String userEmail) {
         User user = resolveUser(userEmail);
         return songRepository.findAll().stream()
@@ -32,6 +34,7 @@ public class SongService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<SongResponse> searchSongs(String query, String userEmail) {
         User user = resolveUser(userEmail);
         return songRepository
@@ -41,15 +44,17 @@ public class SongService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public SongResponse getSongById(String id, String userEmail) {
         User user = resolveUser(userEmail);
         Song song = songRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Song not found: " + id));
         try {
             String payload = (userEmail != null ? userEmail : "anonymous") + ":" + id;
-            kafkaTemplate.send(KafkaConfig.TOPIC_SONG_PLAYED, payload);
-        } catch (Exception e) {
-            // Kafka not available — song fetch still works fine
+            kafkaTemplate.send(KafkaConfig.TOPIC_SONG_PLAYED, payload)
+                    .whenComplete((result, ex) -> { /* silently ignore async failures */ });
+        } catch (Exception ignored) {
+            // Kafka not running locally — song response still returned
         }
         return toResponse(song, user);
     }

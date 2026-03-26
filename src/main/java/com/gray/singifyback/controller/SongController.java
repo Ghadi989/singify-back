@@ -28,6 +28,18 @@ public class SongController {
         return ResponseEntity.ok(songService.getAllSongs(email));
     }
 
+    @GetMapping("/recommended")
+    public ResponseEntity<List<SongResponse>> getRecommendedSongs(@AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails != null ? userDetails.getUsername() : null;
+        return ResponseEntity.ok(songService.getAllSongs(email));
+    }
+
+    @GetMapping("/recent")
+    public ResponseEntity<List<SongResponse>> getRecentSongs(@AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails != null ? userDetails.getUsername() : null;
+        return ResponseEntity.ok(songService.getAllSongs(email));
+    }
+
     @GetMapping("/search")
     public ResponseEntity<List<SongResponse>> searchSongs(@RequestParam String q,
             @AuthenticationPrincipal UserDetails userDetails) {

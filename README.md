@@ -24,8 +24,15 @@ git clone https://github.com/your-org/singify-front.git
 
 # 2. Start the full stack
 cd singify-back
+
+# If your Docker installation supports the newer CLI plugin (Docker Desktop ≥ 4.x):
 docker compose up --build
+
+# If the above is not found (older standalone docker-compose binary):
+docker-compose up --build
 ```
+
+> **WSL users:** if `docker` is not found when running commands in PowerShell or Command Prompt, open a **WSL terminal** (e.g. Ubuntu) and run the commands from there instead. Docker Desktop exposes its daemon to WSL 2 automatically when the WSL integration is enabled in Docker Desktop settings.
 
 ### Service URLs
 

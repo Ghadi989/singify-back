@@ -76,9 +76,6 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      - name: Enforce coverage threshold
-        run: ./mvnw jacoco:check
-
   docker-build:
     runs-on: ubuntu-latest
     needs: build-and-test

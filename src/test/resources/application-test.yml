@@ -38,8 +38,8 @@ backend:
   base-url: http://localhost:8080
 
 spotify:
-  client-id: test
-  client-secret: test
+  client-id: ""
+  client-secret: ""
 
 logging:
   level:

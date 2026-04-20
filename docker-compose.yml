@@ -89,6 +89,14 @@ services:
       start_period: 45s
     restart: unless-stopped
 
+  ytdlp:
+    build:
+      context: ./singify-ytdlp
+    container_name: singify-ytdlp
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
   frontend:
     build:
       context: ../singify-front

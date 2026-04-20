@@ -18,12 +18,15 @@ public class SongService {
     private final SongRepository songRepository;
     private final UserRepository userRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final YtDlpService ytDlpService;
 
     public SongService(SongRepository songRepository, UserRepository userRepository,
-                       KafkaTemplate<String, String> kafkaTemplate) {
+                       KafkaTemplate<String, String> kafkaTemplate,
+                       YtDlpService ytDlpService) {
         this.songRepository = songRepository;
         this.userRepository = userRepository;
         this.kafkaTemplate = kafkaTemplate;
+        this.ytDlpService = ytDlpService;
     }
 
     @Transactional(readOnly = true)
@@ -66,12 +69,16 @@ public class SongService {
 
     private SongResponse toResponse(Song song, User user) {
         boolean liked = user != null && user.getLikedSongs().contains(song);
+        String audioUrl = song.getAudioUrl();
+        if (audioUrl == null || audioUrl.isBlank()) {
+            audioUrl = ytDlpService.getProxyStreamUrl(song.getArtist(), song.getTitle());
+        }
         return new SongResponse(
                 song.getId(),
                 song.getTitle(),
                 song.getArtist(),
                 song.getCoverUrl(),
-                song.getAudioUrl(),
+                audioUrl,
                 song.getDuration(),
                 liked
         );

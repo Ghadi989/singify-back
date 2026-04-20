@@ -18,7 +18,6 @@ public class Song {
 
     private String coverUrl;
 
-    @Column(nullable = false)
     private String audioUrl;
 
     private String duration;

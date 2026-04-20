@@ -5,6 +5,7 @@ import com.gray.singifyback.model.Song;
 import com.gray.singifyback.repository.SongRepository;
 import com.gray.singifyback.repository.UserRepository;
 import com.gray.singifyback.service.SongService;
+import com.gray.singifyback.service.YtDlpService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,6 +25,7 @@ class SongServiceTest {
     @Mock SongRepository songRepository;
     @Mock UserRepository userRepository;
     @Mock KafkaTemplate<String, String> kafkaTemplate;
+    @Mock YtDlpService ytDlpService;
 
     @InjectMocks SongService songService;
 

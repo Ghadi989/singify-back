@@ -36,6 +36,9 @@ gcs:
 lrclib:
   base-url: https://lrclib.net/api
 
+ytdlp:
+  base-url: ${YTDLP_BASE_URL:http://ytdlp:8000}
+
 logging:
   level:
     com.gray.singifyback: INFO

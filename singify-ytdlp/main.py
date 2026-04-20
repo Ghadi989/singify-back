@@ -14,14 +14,11 @@ def search_audio_url(artist: str, title: str) -> str:
     """Search YouTube and return the best audio stream URL."""
     query = f"{artist} {title} official audio"
     ydl_opts = {
-        # Accept any audio-only format, fall back to any format with audio
-        "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best[acodec!=none]/best",
+        "format": "best",
         "quiet": True,
         "no_warnings": True,
         "extract_flat": False,
         "default_search": "ytsearch1",
-        # Allow non-preferred formats if nothing else is available
-        "format_sort": ["abr", "asr"],
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(query, download=False)

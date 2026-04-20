@@ -15,39 +15,35 @@ public class YtDlpService {
     private static final Logger log = LoggerFactory.getLogger(YtDlpService.class);
 
     private final RestTemplate restTemplate;
-    private final String baseUrl;
+    private final String ytdlpBaseUrl;
+    private final String backendBaseUrl;
 
     public YtDlpService(RestTemplate restTemplate,
-                        @Value("${ytdlp.base-url}") String baseUrl) {
+                        @Value("${ytdlp.base-url}") String ytdlpBaseUrl,
+                        @Value("${backend.base-url:http://localhost:8080}") String backendBaseUrl) {
         this.restTemplate = restTemplate;
-        this.baseUrl = baseUrl;
+        this.ytdlpBaseUrl = ytdlpBaseUrl;
+        this.backendBaseUrl = backendBaseUrl;
     }
 
     /**
-     * Returns a streaming URL for the given song from the yt-dlp microservice.
-     * Falls back to null if the service is unavailable.
-     */
-    public String getStreamUrl(String artist, String title) {
-        try {
-            String url = UriComponentsBuilder.fromHttpUrl(baseUrl + "/url")
-                    .queryParam("artist", artist)
-                    .queryParam("title", title)
-                    .toUriString();
-            Map<?, ?> response = restTemplate.getForObject(url, Map.class);
-            if (response != null && response.get("url") instanceof String streamUrl) {
-                return streamUrl;
-            }
-        } catch (Exception e) {
-            log.warn("yt-dlp service unavailable for '{} - {}': {}", artist, title, e.getMessage());
-        }
-        return null;
-    }
-
-    /**
-     * Returns the proxy stream URL (served through our ytdlp service, handles CORS).
+     * Returns a URL the browser can use to stream audio.
+     * Points to the Spring Boot proxy endpoint (/api/audio/stream),
+     * which internally calls the yt-dlp container.
      */
     public String getProxyStreamUrl(String artist, String title) {
-        return UriComponentsBuilder.fromHttpUrl(baseUrl + "/stream")
+        return UriComponentsBuilder.fromHttpUrl(backendBaseUrl + "/api/audio/stream")
+                .queryParam("artist", artist)
+                .queryParam("title", title)
+                .toUriString();
+    }
+
+    /**
+     * Calls yt-dlp service directly (server-to-server) to get the raw stream URL.
+     * Used internally by AudioController.
+     */
+    public String getInternalStreamUrl(String artist, String title) {
+        return UriComponentsBuilder.fromHttpUrl(ytdlpBaseUrl + "/stream")
                 .queryParam("artist", artist)
                 .queryParam("title", title)
                 .toUriString();

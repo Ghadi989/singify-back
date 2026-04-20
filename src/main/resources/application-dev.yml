@@ -47,6 +47,13 @@ lrclib:
 ytdlp:
   base-url: http://localhost:8000
 
+backend:
+  base-url: http://localhost:8080
+
+spotify:
+  client-id: ${SPOTIFY_CLIENT_ID:}
+  client-secret: ${SPOTIFY_CLIENT_SECRET:}
+
 logging:
   level:
     com.gray.singifyback: DEBUG

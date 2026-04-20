@@ -34,6 +34,13 @@ lrclib:
 ytdlp:
   base-url: http://localhost:8000
 
+backend:
+  base-url: http://localhost:8080
+
+spotify:
+  client-id: test
+  client-secret: test
+
 logging:
   level:
     org.apache.kafka: OFF

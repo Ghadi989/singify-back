@@ -3,6 +3,7 @@ package com.gray.singifyback.controller;
 import com.gray.singifyback.dto.response.SongResponse;
 import com.gray.singifyback.service.LyricsService;
 import com.gray.singifyback.service.SongService;
+import com.gray.singifyback.service.SpotifyService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -17,10 +18,13 @@ public class SongController {
 
     private final SongService songService;
     private final LyricsService lyricsService;
+    private final SpotifyService spotifyService;
 
-    public SongController(SongService songService, LyricsService lyricsService) {
+    public SongController(SongService songService, LyricsService lyricsService,
+                          SpotifyService spotifyService) {
         this.songService = songService;
         this.lyricsService = lyricsService;
+        this.spotifyService = spotifyService;
     }
 
     @GetMapping
@@ -44,6 +48,10 @@ public class SongController {
     @GetMapping("/search")
     public ResponseEntity<List<SongResponse>> searchSongs(@RequestParam String q,
             @AuthenticationPrincipal UserDetails userDetails) {
+        // Use Spotify if configured, otherwise fall back to local DB search
+        if (spotifyService.isConfigured()) {
+            return ResponseEntity.ok(spotifyService.search(q));
+        }
         String email = userDetails != null ? userDetails.getUsername() : null;
         return ResponseEntity.ok(songService.searchSongs(q, email));
     }

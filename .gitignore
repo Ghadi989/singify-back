@@ -32,3 +32,8 @@ build/
 ### VS Code ###
 .vscode/
 get-docker.sh
+
+### Secrets ###
+.env
+*.json
+!**/src/main/resources/*.json

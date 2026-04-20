@@ -66,10 +66,16 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/singify
-      SPRING_DATASOURCE_USERNAME: singify
-      SPRING_DATASOURCE_PASSWORD: singify
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/singify
+      DB_USERNAME: singify
+      DB_PASSWORD: singify
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_SECRET: ${JWT_SECRET:-changeMeInProductionWithALongRandomString123456}
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME:-singify-dev-bucket}
+      GCS_CREDENTIALS_PATH: ${GCS_CREDENTIALS_PATH:-/app/gcs-credentials.json}
+    volumes:
+      - ${GCS_CREDENTIALS_FILE:-./gcs-credentials.json}:/app/gcs-credentials.json:ro
     depends_on:
       postgres:
         condition: service_healthy

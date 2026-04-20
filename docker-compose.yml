@@ -74,6 +74,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:-changeMeInProductionWithALongRandomString123456}
       GCS_BUCKET_NAME: ${GCS_BUCKET_NAME:-singify-dev-bucket}
       GCS_CREDENTIALS_PATH: ${GCS_CREDENTIALS_PATH:-/app/gcs-credentials.json}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
+      YTDLP_BASE_URL: http://ytdlp:8000
+      BACKEND_BASE_URL: http://localhost:8080
     volumes:
       - ${GCS_CREDENTIALS_FILE:-./gcs-credentials.json}:/app/gcs-credentials.json:ro
     depends_on:

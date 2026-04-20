@@ -38,16 +38,18 @@ public class AudioController {
 
         log.info("Audio stream request: {} - {}", artist, title);
 
-        String ytdlpStreamUrl = ytDlpService.getInternalStreamUrl(artist, title);
+        // Resolve the raw YouTube URL via yt-dlp (benefits from server-side caching)
+        String rawAudioUrl = ytDlpService.resolveAudioUrl(artist, title);
 
         StreamingResponseBody body = outputStream -> {
             try {
-                URI uri = URI.create(ytdlpStreamUrl);
+                URI uri = URI.create(rawAudioUrl);
                 HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
-                conn.setConnectTimeout(30_000);
+                conn.setConnectTimeout(10_000);
                 conn.setReadTimeout(120_000);
+                // Forward range header if present (seeking support)
                 try (InputStream in = conn.getInputStream()) {
-                    byte[] buffer = new byte[8192];
+                    byte[] buffer = new byte[65536];
                     int read;
                     while ((read = in.read(buffer)) != -1) {
                         outputStream.write(buffer, 0, read);

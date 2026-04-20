@@ -39,6 +39,24 @@ public class YtDlpService {
     }
 
     /**
+     * Calls yt-dlp /url endpoint to get the resolved raw audio URL (server-to-server).
+     * The yt-dlp service caches results so repeated calls are fast.
+     */
+    @SuppressWarnings("unchecked")
+    public String resolveAudioUrl(String artist, String title) {
+        // Use toUri() so RestTemplate receives a java.net.URI and does NOT double-encode.
+        java.net.URI uri = UriComponentsBuilder.fromHttpUrl(ytdlpBaseUrl + "/url")
+                .queryParam("artist", artist)
+                .queryParam("title", title)
+                .build().toUri();
+        Map<String, String> response = restTemplate.getForObject(uri, Map.class);
+        if (response == null || !response.containsKey("url")) {
+            throw new RuntimeException("yt-dlp returned no URL for " + artist + " - " + title);
+        }
+        return response.get("url");
+    }
+
+    /**
      * Calls yt-dlp service directly (server-to-server) to get the raw stream URL.
      * Used internally by AudioController.
      */

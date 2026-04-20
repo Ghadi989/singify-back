@@ -8,6 +8,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Always upgrade yt-dlp to the latest release — YouTube format changes break old versions.
+RUN pip install --no-cache-dir --upgrade yt-dlp
+
 COPY main.py .
 
 EXPOSE 8000

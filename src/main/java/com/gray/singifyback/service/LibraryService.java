@@ -31,7 +31,7 @@ public class LibraryService {
         return user.getLikedSongs().stream()
                 .map(song -> new SongResponse(
                         song.getId(), song.getTitle(), song.getArtist(),
-                        song.getCoverUrl(), song.getAudioUrl(), song.getDuration(), true))
+                        song.getCoverUrl(), song.getAudioUrl(), song.getDuration(), true, null))
                 .toList();
     }
 

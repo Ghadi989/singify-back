@@ -57,6 +57,32 @@ public class YtDlpService {
     }
 
     /**
+     * Calls yt-dlp /process: spotDL download + Spleeter vocal removal → instrumental MP3 bytes.
+     */
+    public byte[] processKaraoke(String spotifyId, String artist, String title) {
+        java.net.URI uri = UriComponentsBuilder.fromHttpUrl(ytdlpBaseUrl + "/process")
+                .queryParam("spotify_id", spotifyId)
+                .queryParam("artist", artist)
+                .queryParam("title", title)
+                .build().toUri();
+        log.info("Requesting karaoke processing: {} - {} ({})", artist, title, spotifyId);
+        return restTemplate.getForObject(uri, byte[].class);
+    }
+
+    /**
+     * Calls yt-dlp /download endpoint to get the full MP3 bytes.
+     * yt-dlp handles YouTube throttle bypass internally during download.
+     */
+    public byte[] downloadMp3(String artist, String title) {
+        java.net.URI uri = UriComponentsBuilder.fromHttpUrl(ytdlpBaseUrl + "/download")
+                .queryParam("artist", artist)
+                .queryParam("title", title)
+                .build().toUri();
+        log.info("Downloading MP3 from yt-dlp: {} - {}", artist, title);
+        return restTemplate.getForObject(uri, byte[].class);
+    }
+
+    /**
      * Calls yt-dlp service directly (server-to-server) to get the raw stream URL.
      * Used internally by AudioController.
      */

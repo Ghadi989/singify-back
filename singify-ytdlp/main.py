@@ -1,14 +1,21 @@
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
+from fastapi.responses import StreamingResponse, FileResponse
+from audio_separator.separator import Separator
 import yt_dlp
 import requests
 import logging
 import time
+import tempfile
+import os
+import shutil
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 app = FastAPI(title="Singify yt-dlp Audio Service")
+
+# The MDX-Net ONNX model — fast on CPU (~60-90s for a 4-min song), good quality
+MODEL_NAME = "UVR-MDX-NET-Inst_HQ_3.onnx"
 
 # Cache resolved URLs to avoid re-searching YouTube on every play.
 # YouTube signed URLs typically expire after ~6 hours; we use 5h to be safe.
@@ -40,7 +47,7 @@ def _pick_audio_format(info: dict) -> str:
 
 
 def search_audio_url(artist: str, title: str) -> str:
-    """Search YouTube for a karaoke/instrumental version and return its audio stream URL."""
+    """Search YouTube for a song and return its audio stream URL."""
     key = _cache_key(artist, title)
     cached = _url_cache.get(key)
     if cached:
@@ -49,7 +56,7 @@ def search_audio_url(artist: str, title: str) -> str:
             log.info("Cache hit for %s - %s", artist, title)
             return url
 
-    query = f"{artist} {title} official instrumental"
+    query = f"{artist} {title}"
     log.info("Searching: %s", query)
     ydl_opts = {
         "quiet": True,
@@ -67,17 +74,127 @@ def search_audio_url(artist: str, title: str) -> str:
     return url
 
 
+def _download_mp3(query: str, out_path: str) -> str:
+    """Download audio matching `query` and convert to MP3 at `out_path`."""
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": out_path.replace(".mp3", ".%(ext)s"),
+        "quiet": True,
+        "no_warnings": True,
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([query])
+    if not os.path.exists(out_path):
+        raise ValueError(f"yt-dlp produced no MP3 for: {query}")
+    return out_path
+
+
+def _find_instrumental(output_files: list[str], sep_dir: str) -> str:
+    """Pick the instrumental (non-vocal) file from audio-separator output."""
+    def full(f):
+        return f if os.path.isabs(f) else os.path.join(sep_dir, f)
+
+    # Prefer files explicitly labelled Instrumental
+    for f in output_files:
+        if "Instrumental" in os.path.basename(f) or "instrumental" in os.path.basename(f):
+            return full(f)
+    # Fall back: pick anything that isn't labelled Vocals
+    for f in output_files:
+        bn = os.path.basename(f)
+        if "Vocal" not in bn and "vocal" not in bn:
+            return full(f)
+    # Last resort: first file
+    if output_files:
+        return full(output_files[0])
+    raise ValueError("audio-separator produced no output files")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 
+@app.post("/cache/clear")
+def clear_cache():
+    _url_cache.clear()
+    log.info("URL cache cleared")
+    return {"cleared": True}
+
+
+@app.get("/process")
+def process_karaoke(
+    spotify_id: str = Query(...),
+    artist: str = Query(...),
+    title: str = Query(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
+    """
+    Full karaoke pipeline:
+      1. Download the original song from YouTube via yt-dlp
+      2. Remove vocals with audio-separator (ONNX, UVR-MDX-NET — ~60-90s on CPU)
+      3. Return the instrumental MP3 for the backend to upload to GCS
+    """
+    song_label = f"{artist} - {title}"
+    log.info("=" * 60)
+    log.info("🎵 KARAOKE PIPELINE START: %s", song_label)
+    log.info("=" * 60)
+    tmpdir = tempfile.mkdtemp()
+    t_start = time.time()
+
+    try:
+        # ── STEP 1: Download original song ────────────────────────────
+        log.info("[1/3] DOWNLOAD  Searching YouTube for: %s", song_label)
+        input_mp3 = os.path.join(tmpdir, "audio.mp3")
+        t1 = time.time()
+        _download_mp3(f"ytsearch1:{artist} {title}", input_mp3)
+        size_mb = os.path.getsize(input_mp3) / 1_048_576
+        log.info("[1/3] DOWNLOAD  ✅ Done in %.1fs — %.2f MB", time.time() - t1, size_mb)
+
+        # ── STEP 2: Vocal removal via audio-separator (ONNX) ──────────
+        log.info("[2/3] SEPARATE  Removing vocals (%s, ONNX/CPU)...", MODEL_NAME)
+        sep_dir = os.path.join(tmpdir, "separated")
+        os.makedirs(sep_dir, exist_ok=True)
+        t2 = time.time()
+
+        separator = Separator(output_dir=sep_dir, output_format="mp3")
+        separator.load_model(model_filename=MODEL_NAME)
+        output_files = separator.separate(input_mp3)
+        log.info("[2/3] SEPARATE  Raw output: %s", output_files)
+
+        instrumental = _find_instrumental(output_files, sep_dir)
+        if not os.path.exists(instrumental):
+            raise ValueError(f"Instrumental file not found on disk: {instrumental}")
+
+        size_mb2 = os.path.getsize(instrumental) / 1_048_576
+        log.info("[2/3] SEPARATE  ✅ Done in %.1fs — %.2f MB → %s",
+                 time.time() - t2, size_mb2, os.path.basename(instrumental))
+
+        # ── STEP 3: Return to backend for GCS upload ──────────────────
+        log.info("[3/3] RESPONSE  Sending instrumental to backend...")
+        log.info("=" * 60)
+        log.info("✅ PIPELINE COMPLETE: %s  (total %.1fs)", song_label, time.time() - t_start)
+        log.info("=" * 60)
+
+        background_tasks.add_task(shutil.rmtree, tmpdir, True)
+        return FileResponse(instrumental, media_type="audio/mpeg", filename="instrumental.mp3")
+
+    except Exception as e:
+        shutil.rmtree(tmpdir, True)
+        log.error("=" * 60)
+        log.error("❌ PIPELINE FAILED: %s", song_label)
+        log.error("   Reason: %s", e)
+        log.error("=" * 60)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/stream")
 def stream_audio(artist: str = Query(...), title: str = Query(...)):
-    """
-    Proxy-stream audio for a given artist + title.
-    The frontend audio element hits this endpoint directly.
-    """
+    """Proxy-stream the original song audio from YouTube."""
     log.info("Stream request: artist=%s title=%s", artist, title)
     try:
         audio_url = search_audio_url(artist, title)
@@ -85,8 +202,13 @@ def stream_audio(artist: str = Query(...), title: str = Query(...)):
         log.error("Failed to find audio: %s", e)
         raise HTTPException(status_code=404, detail=f"Audio not found: {e}")
 
-    # Proxy the stream so CORS is handled server-side
-    upstream = requests.get(audio_url, stream=True, timeout=10)
+    yt_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": "https://www.youtube.com/",
+        "Origin": "https://www.youtube.com",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    upstream = requests.get(audio_url, headers=yt_headers, stream=True, timeout=10)
 
     def generate():
         for chunk in upstream.iter_content(chunk_size=8192):
@@ -97,11 +219,30 @@ def stream_audio(artist: str = Query(...), title: str = Query(...)):
     return StreamingResponse(generate(), media_type=content_type)
 
 
+@app.get("/download")
+def download_audio(
+    artist: str = Query(...),
+    title: str = Query(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
+    """Download the original song as MP3 (used by the backend for GCS caching)."""
+    log.info("Download request: artist=%s title=%s", artist, title)
+    tmpdir = tempfile.mkdtemp()
+    try:
+        out = os.path.join(tmpdir, "audio.mp3")
+        _download_mp3(f"ytsearch1:{artist} {title}", out)
+        log.info("Downloaded %s bytes for %s - %s", os.path.getsize(out), artist, title)
+        background_tasks.add_task(shutil.rmtree, tmpdir, True)
+        return FileResponse(out, media_type="audio/mpeg", filename="audio.mp3")
+    except Exception as e:
+        shutil.rmtree(tmpdir, True)
+        log.error("Download failed for %s - %s: %s", artist, title, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/url")
 def get_audio_url(artist: str = Query(...), title: str = Query(...)):
-    """
-    Return the raw YouTube audio stream URL (for backend use).
-    """
+    """Return the raw YouTube audio stream URL."""
     log.info("URL request: artist=%s title=%s", artist, title)
     try:
         audio_url = search_audio_url(artist, title)

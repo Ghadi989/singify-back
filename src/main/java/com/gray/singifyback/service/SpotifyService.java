@@ -1,15 +1,18 @@
 package com.gray.singifyback.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gray.singifyback.dto.response.SongResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -22,7 +25,8 @@ public class SpotifyService {
     private static final String TOKEN_URL = "https://accounts.spotify.com/api/token";
     private static final String SEARCH_URL = "https://api.spotify.com/v1/search";
 
-    private final RestTemplate restTemplate;
+    private final HttpClient http = HttpClient.newHttpClient();
+    private final ObjectMapper mapper = new ObjectMapper();
     private final YtDlpService ytDlpService;
     private final String clientId;
     private final String clientSecret;
@@ -31,11 +35,9 @@ public class SpotifyService {
     private String cachedToken;
     private long tokenExpiresAt = 0;
 
-    public SpotifyService(RestTemplate restTemplate,
-                          YtDlpService ytDlpService,
+    public SpotifyService(YtDlpService ytDlpService,
                           @Value("${spotify.client-id}") String clientId,
                           @Value("${spotify.client-secret}") String clientSecret) {
-        this.restTemplate = restTemplate;
         this.ytDlpService = ytDlpService;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
@@ -53,29 +55,41 @@ public class SpotifyService {
         }
         try {
             String token = getAccessToken();
-            String url = SEARCH_URL + "?q=" + query + "&type=track&limit=20";
+            String url = SEARCH_URL + "?q=" + URLEncoder.encode(query, StandardCharsets.UTF_8)
+                    + "&type=track&market=FR";
+            log.info("Spotify search URL: {}", url);
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(token);
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + token)
+                    .GET()
+                    .build();
 
-            Map<?, ?> body = response.getBody();
-            if (body == null) return Collections.emptyList();
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            log.info("Spotify search status: {}", response.statusCode());
 
+            if (response.statusCode() != 200) {
+                log.error("Spotify search error {}: {}", response.statusCode(), response.body());
+                return Collections.emptyList();
+            }
+
+            Map<?, ?> body = mapper.readValue(response.body(), Map.class);
             Map<?, ?> tracks = (Map<?, ?>) body.get("tracks");
+            if (tracks == null) { log.error("No 'tracks' in response: {}", response.body()); return Collections.emptyList(); }
             List<?> items = (List<?>) tracks.get("items");
+            if (items == null) return Collections.emptyList();
 
             return items.stream()
                     .map(item -> mapTrack((Map<?, ?>) item))
                     .toList();
 
         } catch (Exception e) {
-            log.error("Spotify search failed: {}", e.getMessage());
+            log.error("Spotify search failed for '{}': {}", query, e.getMessage(), e);
             return Collections.emptyList();
         }
     }
 
+    @SuppressWarnings("unchecked")
     private SongResponse mapTrack(Map<?, ?> track) {
         String id = (String) track.get("id");
         String title = (String) track.get("name");
@@ -89,35 +103,40 @@ public class SpotifyService {
         String coverUrl = images.isEmpty() ? null
                 : (String) ((Map<?, ?>) images.get(0)).get("url");
 
-        int durationMs = (int) track.get("duration_ms");
-        String duration = formatDuration(durationMs);
+        Number durationMs = (Number) track.get("duration_ms");
+        String duration = formatDuration(durationMs != null ? durationMs.intValue() : 0);
 
+        String previewUrl = (String) track.get("preview_url");
         String audioUrl = ytDlpService.getProxyStreamUrl(artist, title);
 
-        return new SongResponse("spotify-" + id, title, artist, coverUrl, audioUrl, duration, false);
+        return new SongResponse("spotify-" + id, title, artist, coverUrl, audioUrl, duration, false, previewUrl);
     }
 
-    private String getAccessToken() {
+    private String getAccessToken() throws Exception {
         if (cachedToken != null && System.currentTimeMillis() < tokenExpiresAt) {
             return cachedToken;
         }
+        log.info("Requesting Spotify token for clientId={}", clientId);
+
         String credentials = Base64.getEncoder()
-                .encodeToString((clientId + ":" + clientSecret).getBytes());
+                .encodeToString((clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8));
+        String formBody = "grant_type=client_credentials";
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        headers.set("Authorization", "Basic " + credentials);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(TOKEN_URL))
+                .header("Authorization", "Basic " + credentials)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(formBody))
+                .build();
 
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("grant_type", "client_credentials");
+        HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("Token request failed " + response.statusCode() + ": " + response.body());
+        }
 
-        ResponseEntity<Map> response = restTemplate.exchange(
-                TOKEN_URL, HttpMethod.POST,
-                new HttpEntity<>(body, headers), Map.class);
-
-        Map<?, ?> responseBody = response.getBody();
-        cachedToken = (String) responseBody.get("access_token");
-        int expiresIn = (int) responseBody.get("expires_in");
+        Map<?, ?> body = mapper.readValue(response.body(), Map.class);
+        cachedToken = (String) body.get("access_token");
+        int expiresIn = ((Number) body.get("expires_in")).intValue();
         tokenExpiresAt = System.currentTimeMillis() + (expiresIn - 60) * 1000L;
 
         return cachedToken;

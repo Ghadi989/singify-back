@@ -7,5 +7,6 @@ public record SongResponse(
     String coverUrl,
     String audioUrl,
     String duration,
-    boolean userLike
+    boolean userLike,
+    String previewUrl   // Spotify 30s preview; null for local DB songs
 ) {}

@@ -70,4 +70,15 @@ public class SongController {
         SongResponse song = songService.getSongById(id, email);
         return ResponseEntity.ok(lyricsService.getLyrics(song.title(), song.artist()));
     }
+
+    /**
+     * Direct lyrics lookup by artist + title — works for Spotify results
+     * that are not stored in the local DB.
+     */
+    @GetMapping("/lyrics")
+    public ResponseEntity<Map<String, Object>> getLyricsDirect(
+            @RequestParam String artist,
+            @RequestParam String title) {
+        return ResponseEntity.ok(lyricsService.getLyrics(title, artist));
+    }
 }

@@ -80,7 +80,8 @@ public class SongService {
                 song.getCoverUrl(),
                 audioUrl,
                 song.getDuration(),
-                liked
+                liked,
+                null  // no Spotify preview for DB songs
         );
     }
 }

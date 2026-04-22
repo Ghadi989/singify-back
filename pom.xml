@@ -129,12 +129,16 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.12</version>
                 <executions>
+
+                    <!-- 1. Instrument bytecode before tests run -->
                     <execution>
                         <id>prepare-agent</id>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
                     </execution>
+
+                    <!-- 2. Generate HTML + XML report after tests -->
                     <execution>
                         <id>report</id>
                         <phase>test</phase>
@@ -142,6 +146,44 @@
                             <goal>report</goal>
                         </goals>
                     </execution>
+
+                    <!-- 3. Quality gate — fails the build if thresholds are not met -->
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <!-- 60 % of instructions must be covered -->
+                                        <limit>
+                                            <counter>INSTRUCTION</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.60</minimum>
+                                        </limit>
+                                        <!-- 50 % of branches (if/switch) must be covered -->
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.50</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                            <!-- Exclude boilerplate that doesn't need unit tests -->
+                            <excludes>
+                                <exclude>com/gray/singifyback/SingifyBackApplication.class</exclude>
+                                <exclude>com/gray/singifyback/dto/**</exclude>
+                                <exclude>com/gray/singifyback/model/**</exclude>
+                                <exclude>com/gray/singifyback/config/DataSeeder.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+
                 </executions>
             </plugin>
 

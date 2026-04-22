@@ -21,13 +21,47 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Build
-        run: ./mvnw clean package -B -DskipTests
+      # compile → test → jacoco:report → jacoco:check (quality gate) → package
+      - name: Build, test & coverage gate
+        run: ./mvnw verify -B
 
-      - name: Run tests
-        run: ./mvnw test -B
+      # Print instruction & branch coverage to the Actions job summary
+      - name: Coverage summary
+        if: always()
+        run: |
+          REPORT=target/site/jacoco/jacoco.xml
+          if [ ! -f "$REPORT" ]; then
+            echo "No JaCoCo report found — tests may have been skipped." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          INSTR_MISSED=$(grep -oP 'type="INSTRUCTION"[^/]*/>' "$REPORT" | grep -oP 'missed="\K[0-9]+' | awk '{s+=$1}END{print s}')
+          INSTR_COVERED=$(grep -oP 'type="INSTRUCTION"[^/]*/>' "$REPORT" | grep -oP 'covered="\K[0-9]+' | awk '{s+=$1}END{print s}')
+          BRANCH_MISSED=$(grep -oP 'type="BRANCH"[^/]*/>' "$REPORT" | grep -oP 'missed="\K[0-9]+' | awk '{s+=$1}END{print s}')
+          BRANCH_COVERED=$(grep -oP 'type="BRANCH"[^/]*/>' "$REPORT" | grep -oP 'covered="\K[0-9]+' | awk '{s+=$1}END{print s}')
+
+          INSTR_TOTAL=$((INSTR_MISSED + INSTR_COVERED))
+          BRANCH_TOTAL=$((BRANCH_MISSED + BRANCH_COVERED))
+
+          if [ $INSTR_TOTAL -gt 0 ]; then
+            INSTR_PCT=$(awk "BEGIN{printf \"%.1f\", $INSTR_COVERED/$INSTR_TOTAL*100}")
+          else
+            INSTR_PCT="N/A"
+          fi
+          if [ $BRANCH_TOTAL -gt 0 ]; then
+            BRANCH_PCT=$(awk "BEGIN{printf \"%.1f\", $BRANCH_COVERED/$BRANCH_TOTAL*100}")
+          else
+            BRANCH_PCT="N/A"
+          fi
+
+          echo "## JaCoCo Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Counter | Covered | Total | % | Gate |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|---------|-------|---|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Instructions | $INSTR_COVERED | $INSTR_TOTAL | ${INSTR_PCT}% | ≥ 60% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branches | $BRANCH_COVERED | $BRANCH_TOTAL | ${BRANCH_PCT}% | ≥ 50% |" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload coverage report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-report

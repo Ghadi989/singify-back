@@ -32,7 +32,7 @@ class SongServiceTest {
     @Test
     void getAllSongs_unauthenticated_returnsAllSongsWithLikedFalse() {
         Song song = new Song("id-1", "Hard Times", "Paramore", null, "http://audio.url", "2:57");
-        when(songRepository.findAll()).thenReturn(List.of(song));
+        when(songRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(song));
 
         List<SongResponse> result = songService.getAllSongs(null);
 

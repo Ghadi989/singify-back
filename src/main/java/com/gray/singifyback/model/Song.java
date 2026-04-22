@@ -35,6 +35,16 @@ public class Song {
 
     public Song() {}
 
+    /** Convenience constructor for tests (matches the original 6-arg signature). */
+    public Song(String id, String title, String artist, String coverUrl, String audioUrl, String duration) {
+        this.id = id;
+        this.title = title;
+        this.artist = artist;
+        this.coverUrl = coverUrl;
+        this.audioUrl = audioUrl;
+        this.duration = duration;
+    }
+
     // ── Getters & setters ──────────────────────────────────────────────────────
 
     public String getId()          { return id; }

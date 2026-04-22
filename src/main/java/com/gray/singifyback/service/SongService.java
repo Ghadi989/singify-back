@@ -32,7 +32,7 @@ public class SongService {
     @Transactional(readOnly = true)
     public List<SongResponse> getAllSongs(String userEmail) {
         User user = resolveUser(userEmail);
-        return songRepository.findAll().stream()
+        return songRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(song -> toResponse(song, user))
                 .toList();
     }
@@ -81,7 +81,7 @@ public class SongService {
                 audioUrl,
                 song.getDuration(),
                 liked,
-                null  // no Spotify preview for DB songs
+                song.getPreviewUrl()
         );
     }
 }

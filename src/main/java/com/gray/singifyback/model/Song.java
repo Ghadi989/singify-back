@@ -17,39 +17,52 @@ public class Song {
     private String artist;
 
     private String coverUrl;
-
     private String audioUrl;
-
     private String duration;
+    private String previewUrl;
+
+    /** Spotify track ID — used to deduplicate when saving processed songs. */
+    @Column(unique = true)
+    private String spotifyId;
+
+    /** Epoch-ms set on first persist — used to order "recent" songs. */
+    private Long createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) createdAt = System.currentTimeMillis();
+    }
 
     public Song() {}
 
-    public Song(String id, String title, String artist, String coverUrl, String audioUrl, String duration) {
-        this.id = id;
-        this.title = title;
-        this.artist = artist;
-        this.coverUrl = coverUrl;
-        this.audioUrl = audioUrl;
-        this.duration = duration;
-    }
+    // ── Getters & setters ──────────────────────────────────────────────────────
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public String getId()          { return id; }
+    public void   setId(String v)  { this.id = v; }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public String getTitle()           { return title; }
+    public void   setTitle(String v)   { this.title = v; }
 
-    public String getArtist() { return artist; }
-    public void setArtist(String artist) { this.artist = artist; }
+    public String getArtist()          { return artist; }
+    public void   setArtist(String v)  { this.artist = v; }
 
-    public String getCoverUrl() { return coverUrl; }
-    public void setCoverUrl(String coverUrl) { this.coverUrl = coverUrl; }
+    public String getCoverUrl()            { return coverUrl; }
+    public void   setCoverUrl(String v)    { this.coverUrl = v; }
 
-    public String getAudioUrl() { return audioUrl; }
-    public void setAudioUrl(String audioUrl) { this.audioUrl = audioUrl; }
+    public String getAudioUrl()            { return audioUrl; }
+    public void   setAudioUrl(String v)    { this.audioUrl = v; }
 
-    public String getDuration() { return duration; }
-    public void setDuration(String duration) { this.duration = duration; }
+    public String getDuration()            { return duration; }
+    public void   setDuration(String v)    { this.duration = v; }
+
+    public String getPreviewUrl()          { return previewUrl; }
+    public void   setPreviewUrl(String v)  { this.previewUrl = v; }
+
+    public String getSpotifyId()           { return spotifyId; }
+    public void   setSpotifyId(String v)   { this.spotifyId = v; }
+
+    public Long getCreatedAt()             { return createdAt; }
+    public void setCreatedAt(Long v)       { this.createdAt = v; }
 
     @Override
     public boolean equals(Object o) {
@@ -59,7 +72,5 @@ public class Song {
     }
 
     @Override
-    public int hashCode() {
-        return id != null ? id.hashCode() : 0;
-    }
+    public int hashCode() { return id != null ? id.hashCode() : 0; }
 }

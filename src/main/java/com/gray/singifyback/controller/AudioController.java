@@ -53,10 +53,13 @@ public class AudioController {
     public ResponseEntity<Map<String, String>> process(
             @RequestParam String spotifyId,
             @RequestParam String artist,
-            @RequestParam String title) {
+            @RequestParam String title,
+            @RequestParam(required = false) String coverUrl,
+            @RequestParam(required = false) String duration,
+            @RequestParam(required = false) String previewUrl) {
         String current = processingService.getStatus(artist, title);
         if (!"processing".equals(current) && !"ready".equals(current)) {
-            processingService.processAsync(spotifyId, artist, title);
+            processingService.processAsync(spotifyId, artist, title, coverUrl, duration, previewUrl);
         }
         return ResponseEntity.ok(Map.of("status", "processing"));
     }

@@ -1,12 +1,14 @@
 package com.gray.singifyback.service;
 
+import com.gray.singifyback.model.Song;
+import com.gray.singifyback.repository.SongRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AudioProcessingService {
@@ -15,13 +17,17 @@ public class AudioProcessingService {
 
     private final YtDlpService ytDlpService;
     private final GcsService gcsService;
+    private final SongRepository songRepository;
 
     // key → "processing" | "ready" | "failed"
     private final Map<String, String> statusMap = new ConcurrentHashMap<>();
 
-    public AudioProcessingService(YtDlpService ytDlpService, GcsService gcsService) {
+    public AudioProcessingService(YtDlpService ytDlpService,
+                                  GcsService gcsService,
+                                  SongRepository songRepository) {
         this.ytDlpService = ytDlpService;
         this.gcsService = gcsService;
+        this.songRepository = songRepository;
     }
 
     public String getStatus(String artist, String title) {
@@ -35,7 +41,8 @@ public class AudioProcessingService {
     }
 
     @Async("karaokeExecutor")
-    public void processAsync(String spotifyId, String artist, String title) {
+    public void processAsync(String spotifyId, String artist, String title,
+                             String coverUrl, String duration, String previewUrl) {
         String key = GcsService.toKey(artist, title);
 
         // Guard: don't double-process
@@ -56,9 +63,36 @@ public class AudioProcessingService {
             gcsService.upload(key, mp3, "audio/mpeg");
             statusMap.put(key, "ready");
             log.info("✅ [BACKEND] GCS upload complete — karaoke ready: {}", key);
+
+            // Persist song metadata to DB so it appears in the home screen after restart
+            saveSongToDb(spotifyId, artist, title, coverUrl, duration, previewUrl);
+
         } catch (Exception e) {
             statusMap.put(key, "failed");
             log.error("❌ [BACKEND] Pipeline failed for {} - {}: {}", artist, title, e.getMessage());
+        }
+    }
+
+    private void saveSongToDb(String spotifyId, String artist, String title,
+                               String coverUrl, String duration, String previewUrl) {
+        try {
+            if (songRepository.findBySpotifyId(spotifyId).isPresent()) {
+                log.info("ℹ [BACKEND] Song already in DB: {} - {}", artist, title);
+                return;
+            }
+            Song song = new Song();
+            song.setSpotifyId(spotifyId);
+            song.setTitle(title);
+            song.setArtist(artist);
+            song.setCoverUrl(coverUrl);
+            song.setDuration(duration);
+            song.setPreviewUrl(previewUrl);
+            song.setAudioUrl(null); // resolved at request time via yt-dlp proxy
+            songRepository.save(song);
+            log.info("✅ [BACKEND] Song saved to DB: {} - {}", artist, title);
+        } catch (Exception e) {
+            // Non-fatal — karaoke is still in GCS, song just won't appear in recent list on next load
+            log.warn("⚠ [BACKEND] Could not save song to DB ({} - {}): {}", artist, title, e.getMessage());
         }
     }
 }

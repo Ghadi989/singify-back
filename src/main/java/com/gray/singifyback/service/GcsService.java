@@ -36,15 +36,20 @@ public class GcsService {
         Storage s = null;
         boolean ok = false;
 
-        log.info("GCS init — bucket='{}' credPath='{}' credJson={}chars",
-                bucketName, credentialsPath, credentialsJson.length());
+        String envDirect = System.getenv("GCS_CREDENTIALS_JSON");
+        String effectiveCred = !credentialsJson.isBlank() ? credentialsJson
+                : (envDirect != null ? envDirect : "");
 
-        if (!bucketName.isBlank() && (!credentialsPath.isBlank() || !credentialsJson.isBlank())) {
+        log.info("GCS init — bucket='{}' credPath='{}' spring={}chars env={}chars",
+                bucketName, credentialsPath, credentialsJson.length(),
+                envDirect != null ? envDirect.length() : 0);
+
+        if (!bucketName.isBlank() && (!credentialsPath.isBlank() || !effectiveCred.isBlank())) {
             try {
                 InputStream credStream;
-                if (!credentialsJson.isBlank()) {
+                if (!effectiveCred.isBlank()) {
                     // Railway-style: base64-encoded JSON in env var
-                    byte[] decoded = Base64.getDecoder().decode(credentialsJson.trim());
+                    byte[] decoded = Base64.getDecoder().decode(effectiveCred.trim());
                     credStream = new ByteArrayInputStream(decoded);
                 } else if (credentialsPath.startsWith("classpath:")) {
                     credStream = getClass().getClassLoader().getResourceAsStream(credentialsPath.replace("classpath:", ""));

@@ -63,6 +63,8 @@ def search_audio_url(artist: str, title: str) -> str:
         "no_warnings": True,
         "extract_flat": False,
         "default_search": "ytsearch1",
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        "socket_timeout": 30,
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(query, download=False)
@@ -81,6 +83,8 @@ def _download_mp3(query: str, out_path: str) -> str:
         "outtmpl": out_path.replace(".mp3", ".%(ext)s"),
         "quiet": True,
         "no_warnings": True,
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        "socket_timeout": 30,
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",

@@ -37,4 +37,4 @@ get-docker.sh
 .env
 *.json
 !**/src/main/resources/*.json
-gcs-credentials.json
+gcs-credentials1.json

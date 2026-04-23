@@ -50,6 +50,9 @@ ytdlp:
 backend:
   base-url: http://localhost:8080
 
+cors:
+  allowed-origins: http://localhost:5173,http://localhost:3000
+
 spotify:
   client-id: ${SPOTIFY_CLIENT_ID:}
   client-secret: ${SPOTIFY_CLIENT_SECRET:}

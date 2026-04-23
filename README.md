@@ -66,6 +66,7 @@ All variables are set in `.env` (copy from `.env.example`).
 | `GCS_BUCKET_NAME` | Yes | Google Cloud Storage bucket name for karaoke audio files |
 | `GCS_CREDENTIALS_FILE` | Local dev | Path to GCS service account JSON for local development |
 | `GCS_CREDENTIALS_PATH` | Docker | Path to GCS credentials inside the container (`/app/gcs-credentials.json`) |
+| `CORS_ALLOWED_ORIGINS` | Yes | Comma-separated list of allowed frontend origins — e.g. `https://singify.example.com` |
 | `SPOTIFY_CLIENT_ID` | No | Spotify API client ID — enables Spotify search; falls back to local DB if absent |
 | `SPOTIFY_CLIENT_SECRET` | No | Spotify API client secret |
 

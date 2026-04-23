@@ -172,17 +172,17 @@
                                 <rule>
                                     <element>BUNDLE</element>
                                     <limits>
-                                        <!-- 60 % of instructions must be covered -->
+                                        <!-- 70 % of instructions must be covered -->
                                         <limit>
                                             <counter>INSTRUCTION</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.60</minimum>
+                                            <minimum>0.70</minimum>
                                         </limit>
-                                        <!-- 50 % of branches (if/switch) must be covered -->
+                                        <!-- 60 % of branches (if/switch) must be covered -->
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.50</minimum>
+                                            <minimum>0.60</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -193,6 +193,11 @@
                                 <exclude>com/gray/singifyback/dto/**</exclude>
                                 <exclude>com/gray/singifyback/model/**</exclude>
                                 <exclude>com/gray/singifyback/config/DataSeeder.class</exclude>
+                                <!-- External-integration classes require live GCS/Spotify/YouTube connections -->
+                                <exclude>com/gray/singifyback/service/SpotifyService.class</exclude>
+                                <exclude>com/gray/singifyback/service/GcsService.class</exclude>
+                                <exclude>com/gray/singifyback/controller/AudioController.class</exclude>
+                                <exclude>com/gray/singifyback/service/AudioProcessingService.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>

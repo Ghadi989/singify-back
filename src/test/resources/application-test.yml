@@ -46,3 +46,6 @@ logging:
     org.apache.kafka: OFF
     org.springframework.kafka: OFF
     com.gray.singifyback: WARN
+
+cors:
+  allowed-origins: http://localhost:3000

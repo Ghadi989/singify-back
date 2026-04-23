@@ -21,6 +21,20 @@ MODEL_NAME = "UVR-MDX-NET-Inst_HQ_3.onnx"
 # YouTube signed URLs typically expire after ~6 hours; we use 5h to be safe.
 _url_cache: dict[str, tuple[str, float]] = {}
 _CACHE_TTL = 5 * 3600
+_COOKIES_FILE = "/tmp/yt-cookies.txt"
+
+
+def _ydl_base_opts() -> dict:
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        "socket_timeout": 30,
+    }
+    if os.path.exists(_COOKIES_FILE):
+        opts["cookiefile"] = _COOKIES_FILE
+        log.info("Using YouTube cookies from %s", _COOKIES_FILE)
+    return opts
 
 
 def _cache_key(artist: str, title: str) -> str:
@@ -58,14 +72,7 @@ def search_audio_url(artist: str, title: str) -> str:
 
     query = f"{artist} {title} lyrics"
     log.info("Searching: %s", query)
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "extract_flat": False,
-        "default_search": "ytsearch1",
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
-        "socket_timeout": 30,
-    }
+    ydl_opts = {**_ydl_base_opts(), "extract_flat": False, "default_search": "ytsearch1"}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(query, download=False)
         if "entries" in info:
@@ -79,12 +86,9 @@ def search_audio_url(artist: str, title: str) -> str:
 def _download_mp3(query: str, out_path: str) -> str:
     """Download audio matching `query` and convert to MP3 at `out_path`."""
     ydl_opts = {
+        **_ydl_base_opts(),
         "format": "bestaudio/best",
         "outtmpl": out_path.replace(".mp3", ".%(ext)s"),
-        "quiet": True,
-        "no_warnings": True,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
-        "socket_timeout": 30,
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",

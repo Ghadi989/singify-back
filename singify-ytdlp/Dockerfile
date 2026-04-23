@@ -16,7 +16,10 @@ RUN pip install --no-cache-dir --upgrade yt-dlp
 RUN python -c "from audio_separator.separator import Separator; s = Separator(); s.load_model('UVR-MDX-NET-Inst_HQ_3.onnx'); print('Model ready.')" || echo "WARNING: model pre-download failed — will download on first use"
 
 COPY main.py .
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --timeout-keep-alive 600"]
+CMD ["/docker-entrypoint.sh"]

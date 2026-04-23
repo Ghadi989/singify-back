@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from audio_separator.separator import Separator
 import yt_dlp
 import requests
+import subprocess
 import logging
 import time
 import tempfile
@@ -23,24 +24,70 @@ _url_cache: dict[str, tuple[str, float]] = {}
 _CACHE_TTL = 5 * 3600
 _COOKIES_FILE = "/tmp/yt-cookies.txt"
 
+# Piped instances in priority order — bypasses YouTube bot detection entirely
+_PIPED_INSTANCES = [
+    "https://pipedapi.kavin.rocks",
+    "https://piped-api.garudalinux.org",
+    "https://api.piped.yt",
+]
+
+
+def _piped_get_audio(artist: str, title: str) -> tuple[str, str]:
+    """Search Piped for artist+title, return (proxied_stream_url, mime_type).
+    Piped proxies YouTube CDN so Railway never hits YouTube directly."""
+    query = f"{artist} {title}"
+    last_err = None
+    for base in _PIPED_INSTANCES:
+        try:
+            search = requests.get(
+                f"{base}/search", params={"q": query, "filter": "all"}, timeout=10
+            ).json()
+            items = [i for i in search.get("items", []) if i.get("type") == "stream"]
+            if not items:
+                continue
+            video_id = items[0]["url"].split("v=")[-1].split("&")[0]
+            streams = requests.get(f"{base}/streams/{video_id}", timeout=10).json()
+            audio = sorted(
+                streams.get("audioStreams", []),
+                key=lambda s: s.get("bitrate", 0),
+                reverse=True,
+            )
+            if not audio:
+                continue
+            url = audio[0]["url"]
+            mime = audio[0].get("mimeType", "audio/webm")
+            log.info("Piped hit: %s — bitrate=%s", base, audio[0].get("bitrate"))
+            return url, mime
+        except Exception as e:
+            last_err = e
+            log.warning("Piped instance %s failed: %s", base, e)
+    raise ValueError(f"All Piped instances failed: {last_err}")
+
+
+def _download_via_piped(artist: str, title: str, out_mp3: str) -> None:
+    """Download audio from Piped proxy and convert to MP3 via ffmpeg."""
+    stream_url, _ = _piped_get_audio(artist, title)
+    temp = out_mp3.replace(".mp3", ".tmp.webm")
+    log.info("Downloading from Piped proxy…")
+    with requests.get(stream_url, stream=True, timeout=120) as r:
+        r.raise_for_status()
+        with open(temp, "wb") as f:
+            for chunk in r.iter_content(chunk_size=65536):
+                f.write(chunk)
+    log.info("Converting to MP3 via ffmpeg…")
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-i", temp, "-vn", "-ar", "44100", "-ac", "2", "-b:a", "192k", out_mp3],
+        capture_output=True, text=True,
+    )
+    os.remove(temp)
+    if result.returncode != 0:
+        raise ValueError(f"ffmpeg failed: {result.stderr[-500:]}")
+
 
 def _ydl_base_opts() -> dict:
-    opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "socket_timeout": 30,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["tv_embedded"],
-                "skip": ["hls", "dash"],
-            }
-        },
-    }
+    opts = {"quiet": True, "no_warnings": True, "socket_timeout": 30}
     if os.path.exists(_COOKIES_FILE):
         opts["cookiefile"] = _COOKIES_FILE
-        log.info("Using YouTube cookies from %s", _COOKIES_FILE)
-    else:
-        log.warning("No YouTube cookies — bot detection may block requests")
     return opts
 
 
@@ -68,7 +115,7 @@ def _pick_audio_format(info: dict) -> str:
 
 
 def search_audio_url(artist: str, title: str) -> str:
-    """Search YouTube for a song and return its audio stream URL."""
+    """Return a streamable audio URL for artist+title (Piped-proxied, cached)."""
     key = _cache_key(artist, title)
     cached = _url_cache.get(key)
     if cached:
@@ -77,24 +124,40 @@ def search_audio_url(artist: str, title: str) -> str:
             log.info("Cache hit for %s - %s", artist, title)
             return url
 
-    query = f"{artist} {title} lyrics"
-    log.info("Searching: %s", query)
+    log.info("Searching: %s", f"{artist} {title}")
+    # Piped first — avoids YouTube PO token restrictions on datacenter IPs
+    try:
+        url, _ = _piped_get_audio(artist, title)
+        _url_cache[key] = (url, time.time() + _CACHE_TTL)
+        return url
+    except Exception as e:
+        log.warning("Piped failed, falling back to yt-dlp: %s", e)
+
     ydl_opts = {**_ydl_base_opts(), "extract_flat": False, "default_search": "ytsearch1"}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
+        info = ydl.extract_info(f"{artist} {title} lyrics", download=False)
         if "entries" in info:
             info = info["entries"][0]
-
     url = _pick_audio_format(info)
     _url_cache[key] = (url, time.time() + _CACHE_TTL)
     return url
 
 
-def _download_mp3(query: str, out_path: str) -> str:
-    """Download audio matching `query` and convert to MP3 at `out_path`."""
+def _download_mp3(artist: str, title: str, out_path: str) -> str:
+    """Download audio for artist+title as MP3 at out_path. Piped-first, yt-dlp fallback."""
+    # Piped: bypasses YouTube PO token restrictions
+    try:
+        _download_via_piped(artist, title, out_path)
+        if os.path.exists(out_path):
+            return out_path
+    except Exception as e:
+        log.warning("Piped download failed, falling back to yt-dlp: %s", e)
+
+    # yt-dlp fallback
+    query = f"ytsearch1:{artist} {title}"
     ydl_opts = {
         **_ydl_base_opts(),
-        "format": "bestaudio[protocol!=dash][protocol!=m3u8]/best[protocol!=dash][protocol!=m3u8]",
+        "format": "bestaudio/best",
         "outtmpl": out_path.replace(".mp3", ".%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
@@ -105,7 +168,7 @@ def _download_mp3(query: str, out_path: str) -> str:
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([query])
     if not os.path.exists(out_path):
-        raise ValueError(f"yt-dlp produced no MP3 for: {query}")
+        raise ValueError(f"No MP3 produced for: {artist} - {title}")
     return out_path
 
 
@@ -166,7 +229,7 @@ def process_karaoke(
         log.info("[1/3] DOWNLOAD  Searching YouTube for: %s", song_label)
         input_mp3 = os.path.join(tmpdir, "audio.mp3")
         t1 = time.time()
-        _download_mp3(f"ytsearch1:{artist} {title}", input_mp3)
+        _download_mp3(artist, title, input_mp3)
         size_mb = os.path.getsize(input_mp3) / 1_048_576
         log.info("[1/3] DOWNLOAD  ✅ Done in %.1fs — %.2f MB", time.time() - t1, size_mb)
 
@@ -245,7 +308,7 @@ def download_audio(
     tmpdir = tempfile.mkdtemp()
     try:
         out = os.path.join(tmpdir, "audio.mp3")
-        _download_mp3(f"ytsearch1:{artist} {title}", out)
+        _download_mp3(artist, title, out)
         log.info("Downloaded %s bytes for %s - %s", os.path.getsize(out), artist, title)
         background_tasks.add_task(shutil.rmtree, tmpdir, True)
         return FileResponse(out, media_type="audio/mpeg", filename="audio.mp3")

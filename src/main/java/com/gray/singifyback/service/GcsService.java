@@ -13,6 +13,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -42,8 +43,9 @@ public class GcsService {
             try {
                 InputStream credStream;
                 if (!credentialsJson.isBlank()) {
-                    // Railway-style: full JSON content in env var
-                    credStream = new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8));
+                    // Railway-style: base64-encoded JSON in env var
+                    byte[] decoded = Base64.getDecoder().decode(credentialsJson.trim());
+                    credStream = new ByteArrayInputStream(decoded);
                 } else if (credentialsPath.startsWith("classpath:")) {
                     credStream = getClass().getClassLoader().getResourceAsStream(credentialsPath.replace("classpath:", ""));
                 } else {

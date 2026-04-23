@@ -29,8 +29,7 @@ def _ydl_base_opts() -> dict:
         "quiet": True,
         "no_warnings": True,
         "socket_timeout": 30,
-        "no_check_formats": True,
-        "extractor_args": {"youtube": {"player_client": ["ios", "web"]}},
+        "extractor_args": {"youtube": {"player_client": ["tv_embedded"]}},
     }
     if os.path.exists(_COOKIES_FILE):
         opts["cookiefile"] = _COOKIES_FILE

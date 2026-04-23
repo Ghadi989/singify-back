@@ -10,6 +10,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 RUN pip install --no-cache-dir -r requirements.txt
+
+# yt-dlp must be latest — it updates daily to track YouTube API changes
+ARG YTDLP_CACHE_BUST=1
 RUN pip install --no-cache-dir --upgrade yt-dlp
 
 # Pre-download the UVR MDX-Net vocal separation model (~65 MB)

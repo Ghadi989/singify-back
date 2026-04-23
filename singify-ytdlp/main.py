@@ -25,15 +25,14 @@ _COOKIES_FILE = "/tmp/yt-cookies.txt"
 
 
 def _ydl_base_opts() -> dict:
-    opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
-        "socket_timeout": 30,
-    }
+    opts = {"quiet": True, "no_warnings": True, "socket_timeout": 30}
     if os.path.exists(_COOKIES_FILE):
+        # Browser cookies require the web client (android uses OAuth, not cookies)
         opts["cookiefile"] = _COOKIES_FILE
+        opts["extractor_args"] = {"youtube": {"player_client": ["web"]}}
         log.info("Using YouTube cookies from %s", _COOKIES_FILE)
+    else:
+        opts["extractor_args"] = {"youtube": {"player_client": ["android", "web"]}}
     return opts
 
 

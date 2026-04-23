@@ -8,9 +8,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,14 +34,17 @@ public class GcsService {
         Storage s = null;
         boolean ok = false;
 
-        if (!bucketName.isBlank() && !credentialsPath.isBlank()) {
+        String credJson = System.getenv("GCS_CREDENTIALS_JSON");
+        if (!bucketName.isBlank() && (!credentialsPath.isBlank() || (credJson != null && !credJson.isBlank()))) {
             try {
-                String resolvedPath = credentialsPath.replace("classpath:", "");
                 InputStream credStream;
-                if (credentialsPath.startsWith("classpath:")) {
-                    credStream = getClass().getClassLoader().getResourceAsStream(resolvedPath);
+                if (credJson != null && !credJson.isBlank()) {
+                    // Railway-style: full JSON content in env var
+                    credStream = new ByteArrayInputStream(credJson.getBytes(StandardCharsets.UTF_8));
+                } else if (credentialsPath.startsWith("classpath:")) {
+                    credStream = getClass().getClassLoader().getResourceAsStream(credentialsPath.replace("classpath:", ""));
                 } else {
-                    credStream = new FileInputStream(resolvedPath);
+                    credStream = new FileInputStream(credentialsPath);
                 }
                 if (credStream != null) {
                     GoogleCredentials credentials = GoogleCredentials.fromStream(credStream)

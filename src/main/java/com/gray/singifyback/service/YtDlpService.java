@@ -25,7 +25,7 @@ public class YtDlpService {
         this.ytdlpBaseUrl = ytdlpBaseUrl;
         this.backendBaseUrl = backendBaseUrl;
         log.info("YtDlpService init — ytdlpBaseUrl='{}' envVar='{}'",
-                ytdlpBaseUrl, System.getenv("YTDLP_BASE_URL"));
+                ytdlpBaseUrl, System.getenv("YTDLP_URL"));
     }
 
     /**

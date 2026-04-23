@@ -45,7 +45,7 @@ lrclib:
   base-url: https://lrclib.net/api
 
 ytdlp:
-  base-url: ${YTDLP_BASE_URL:http://ytdlp:8000}
+  base-url: ${YTDLP_URL:http://ytdlp:8000}
 
 backend:
   base-url: ${BACKEND_BASE_URL:http://localhost:8080}

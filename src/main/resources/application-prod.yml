@@ -37,8 +37,8 @@ jwt:
   expiration-ms: 86400000
 
 gcs:
-  bucket-name: ${GCS_BUCKET_NAME}
-  credentials-path: ${GCS_CREDENTIALS_PATH}
+  bucket-name: ${GCS_BUCKET_NAME:}
+  credentials-path: ${GCS_CREDENTIALS_PATH:}
 
 lrclib:
   base-url: https://lrclib.net/api

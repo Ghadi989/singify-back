@@ -29,7 +29,12 @@ def _ydl_base_opts() -> dict:
         "quiet": True,
         "no_warnings": True,
         "socket_timeout": 30,
-        "extractor_args": {"youtube": {"player_client": ["tv_embedded"]}},
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["tv_embedded"],
+                "skip": ["hls", "dash"],
+            }
+        },
     }
     if os.path.exists(_COOKIES_FILE):
         opts["cookiefile"] = _COOKIES_FILE
@@ -89,7 +94,7 @@ def _download_mp3(query: str, out_path: str) -> str:
     """Download audio matching `query` and convert to MP3 at `out_path`."""
     ydl_opts = {
         **_ydl_base_opts(),
-        "format": "bestaudio/best",
+        "format": "bestaudio[protocol!=dash][protocol!=m3u8]/best[protocol!=dash][protocol!=m3u8]",
         "outtmpl": out_path.replace(".mp3", ".%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",

@@ -39,6 +39,7 @@ jwt:
 gcs:
   bucket-name: ${GCS_BUCKET_NAME:}
   credentials-path: ${GCS_CREDENTIALS_PATH:}
+  credentials-json: ${GCS_CREDENTIALS_JSON:}
 
 lrclib:
   base-url: https://lrclib.net/api

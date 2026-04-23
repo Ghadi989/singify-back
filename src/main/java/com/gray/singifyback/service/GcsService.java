@@ -29,18 +29,21 @@ public class GcsService {
 
     public GcsService(
             @Value("${gcs.bucket-name:}") String bucketName,
-            @Value("${gcs.credentials-path:}") String credentialsPath) {
+            @Value("${gcs.credentials-path:}") String credentialsPath,
+            @Value("${gcs.credentials-json:}") String credentialsJson) {
 
         Storage s = null;
         boolean ok = false;
 
-        String credJson = System.getenv("GCS_CREDENTIALS_JSON");
-        if (!bucketName.isBlank() && (!credentialsPath.isBlank() || (credJson != null && !credJson.isBlank()))) {
+        log.info("GCS init — bucket='{}' credPath='{}' credJson={}chars",
+                bucketName, credentialsPath, credentialsJson.length());
+
+        if (!bucketName.isBlank() && (!credentialsPath.isBlank() || !credentialsJson.isBlank())) {
             try {
                 InputStream credStream;
-                if (credJson != null && !credJson.isBlank()) {
+                if (!credentialsJson.isBlank()) {
                     // Railway-style: full JSON content in env var
-                    credStream = new ByteArrayInputStream(credJson.getBytes(StandardCharsets.UTF_8));
+                    credStream = new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8));
                 } else if (credentialsPath.startsWith("classpath:")) {
                     credStream = getClass().getClassLoader().getResourceAsStream(credentialsPath.replace("classpath:", ""));
                 } else {

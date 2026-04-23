@@ -13,10 +13,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import com.gray.singifyback.model.User;
+
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,5 +68,56 @@ class SongServiceTest {
 
         assertThat(result.title()).isEqualTo("Shape of You");
         assertThat(result.userLike()).isFalse();
+    }
+
+    @Test
+    void getSongById_notFound_throwsException() {
+        when(songRepository.findById("missing")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> songService.getSongById("missing", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Song not found");
+    }
+
+    @Test
+    void searchSongs_emptyResult_returnsEmptyList() {
+        when(songRepository.findByTitleContainingIgnoreCaseOrArtistContainingIgnoreCase("xyz", "xyz"))
+                .thenReturn(List.of());
+
+        List<SongResponse> result = songService.searchSongs("xyz", null);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getAllSongs_withAuthenticatedUser_setsUserLikeCorrectly() {
+        Song liked = new Song("id-1", "Hello", "Adele", null, "http://audio.url", "4:55");
+        Song notLiked = new Song("id-2", "Rolling in the Deep", "Adele", null, "http://audio.url", "3:48");
+
+        User user = new User();
+        user.setId("u1");
+        user.setEmail("user@example.com");
+        user.setLikedSongs(Set.of(liked));
+
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(songRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(liked, notLiked));
+
+        List<SongResponse> result = songService.getAllSongs("user@example.com");
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).userLike()).isTrue();
+        assertThat(result.get(1).userLike()).isFalse();
+    }
+
+    @Test
+    void getAllSongs_noAudioUrl_callsYtDlpForProxyUrl() {
+        Song s = new Song("id-1", "Hello", "Adele", null, null, "4:55");
+        when(songRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(s));
+        when(ytDlpService.getProxyStreamUrl("Adele", "Hello")).thenReturn("http://proxy/stream");
+
+        List<SongResponse> result = songService.getAllSongs(null);
+
+        assertThat(result.get(0).audioUrl()).isEqualTo("http://proxy/stream");
+        verify(ytDlpService).getProxyStreamUrl("Adele", "Hello");
     }
 }

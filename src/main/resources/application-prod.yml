@@ -12,15 +12,22 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        max.block.ms: 500          # fail fast if Kafka is unreachable
+        delivery.timeout.ms: 1000
+        request.timeout.ms: 500
     consumer:
       group-id: singify-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    admin:
+      auto-create: false
+      fail-fast: false             # don't crash on startup if Kafka is absent
 
 server:
   port: ${PORT:8080}

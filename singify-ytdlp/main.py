@@ -56,7 +56,7 @@ def search_audio_url(artist: str, title: str) -> str:
             log.info("Cache hit for %s - %s", artist, title)
             return url
 
-    query = f"{artist} {title}"
+    query = f"{artist} {title} lyrics"
     log.info("Searching: %s", query)
     ydl_opts = {
         "quiet": True,

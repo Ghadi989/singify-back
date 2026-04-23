@@ -20,11 +20,12 @@ RUN addgroup -S singify && adduser -S singify -G singify
 WORKDIR /app
 
 COPY --from=build /app/target/*.jar app.jar
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 
-RUN chown singify:singify app.jar
+RUN chmod +x /docker-entrypoint.sh && chown singify:singify app.jar
 
 USER singify
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

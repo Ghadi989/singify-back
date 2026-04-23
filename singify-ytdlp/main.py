@@ -27,9 +27,8 @@ _COOKIES_FILE = "/tmp/yt-cookies.txt"
 def _ydl_base_opts() -> dict:
     opts = {"quiet": True, "no_warnings": True, "socket_timeout": 30}
     if os.path.exists(_COOKIES_FILE):
-        # Browser cookies require the web client (android uses OAuth, not cookies)
         opts["cookiefile"] = _COOKIES_FILE
-        opts["extractor_args"] = {"youtube": {"player_client": ["web"]}}
+        # Let yt-dlp pick the client automatically when cookies are present
         log.info("Using YouTube cookies from %s", _COOKIES_FILE)
     else:
         opts["extractor_args"] = {"youtube": {"player_client": ["android", "web"]}}
@@ -86,7 +85,7 @@ def _download_mp3(query: str, out_path: str) -> str:
     """Download audio matching `query` and convert to MP3 at `out_path`."""
     ydl_opts = {
         **_ydl_base_opts(),
-        "format": "bestaudio/best",
+        "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
         "outtmpl": out_path.replace(".mp3", ".%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
